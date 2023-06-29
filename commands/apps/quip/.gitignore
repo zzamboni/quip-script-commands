@@ -1,0 +1,4 @@
+.DS_Store
+tmp/
+quip_config.py
+__pycache__
