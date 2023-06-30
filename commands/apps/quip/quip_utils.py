@@ -5,12 +5,26 @@ import os
 import sys
 import subprocess
 from datetime import datetime
+import configparser
 
-try:
-    from quip_config import *
-except ModuleNotFoundError:
-    print(f"Please configure quip_config.template.py and rename it to quip_config.py")
+config = None
+config_file = "quip_config.ini"
+
+def fail(message):
+    print(message)
     sys.exit(1)
+
+# Read configuration
+def readConfig(filename=config_file):
+    global config
+    config = configparser.ConfigParser()
+    files_read = config.read(filename)
+    if filename not in files_read:
+        fail(f"Could not read config file '{filename}'.")
+
+def checkAPIToken(doc_type):
+    if config[doc_type].get('APIToken', "") == "":
+        fail(f"Error: Please configure APIToken in {config_file}.")
 
 # Function from https://gist.github.com/XuankangLin/7ec82f80a0044a52330720244de2d15a
 def setClipboardData(data):
@@ -19,39 +33,42 @@ def setClipboardData(data):
     p.stdin.close()
     retcode = p.wait()
 
-def quip_new_doc(folder_id, title, add_date=False):
-    now = datetime.now() # current date and time
-    nowstr = now.strftime("%Y-%m-%d") + " "
+def quip_new_doc(doc_type, title):
+    readConfig()
+    if not config.has_section(doc_type):
+        fail(f"Error: Quip document type '{doc_type}' is not defined in {config_file}.")
+    verifyAPIToken(doc_type)
 
     try:
-        client = quip.QuipClient(access_token=QUIP_TOKEN, base_url=QUIP_URL)
-        if add_date:
-            title = nowstr + title
+        client = quip.QuipClient(access_token=config[doc_type]['APIToken'], base_url=config[doc_type]['APIURL'])
+        if config[doc_type].getboolean('PrependDate'):
+            title = datetime.now().strftime("%Y-%m-%d") + " " + title
 
         # print(f"Creating new note '{title}' in folder {folder_id}...")
-        result = client.new_document(content=title, format="markdown", member_ids=[folder_id])
+        folders = []
+        if config[doc_type].get('FolderID',None):
+            folders = [config[doc_type].get('FolderID',None)]
+        result = client.new_document(content=title, format="markdown", member_ids=folders)
     except Exception as e:
         if e.code == 401:
-            print(f"Please configure/verify your Quip API token in quip_config.py")
+            fail(f"Please configure/verify your Quip API token in {config_file}")
         elif e.code == 400:
-            print(f"Please configure/verify folder ID '{folder_id}' in quip_config.py")
+            fail(f"Please configure/verify folder ID for [{doc_type}] in {config_file}")
         else:
-            print(f"Received a Quip error:", e, file=sys.stderr)
-        sys.exit(1)
+            fail(f"Received a Quip error:", e, file=sys.stderr)
 
     if result:
         url = result['thread']['link']
         if url:
-            if QUIP_COPY_URL_TO_CLIPBOARD:
+            print(f"New {doc_type} created", end="")
+            if config[doc_type].getboolean('CopyURLToClipboard'):
                 setClipboardData(url.encode('utf_8'))
-                print(f"New note created. URL copied to clipboard.")
-            else:
-                print(f"New note created.")
+                print(f", URL copied to clipboard", end="")
 
-            if QUIP_OPEN:
-                print(f"New note created, opening {url}.")
+            if config[doc_type].getboolean('OpenDocs'):
+                print(f", opening {url}", end="")
                 app_args=[]
-                if QUIP_USE_APP:
+                if config[doc_type].getboolean('UseQuipApp'):
                     app_args=["-a", "Quip"]
                 try:
                     open_args=["/usr/bin/open", *app_args, url]
@@ -60,6 +77,6 @@ def quip_new_doc(folder_id, title, add_date=False):
                     pid = subprocess.Popen(open_args).pid
                 except OSError as e:
                     print("Execution failed:", e, file=sys.stderr)
+            print(".")
         else:
-            print(f"Something went wrong, could not create document.")
-            sys.exit(1)
+            fail(f"Something went wrong, could not create document.")

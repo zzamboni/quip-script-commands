@@ -16,12 +16,6 @@
 # @raycast.authorURL https://raycast.com/zzamboni
 
 import sys
-
-import quip_config
 import quip_utils
 
-folder_id = quip_config.QUIP_MEETNOTES_ID
-title = sys.argv[1]
-add_date = quip_config.QUIP_MEETNOTES_PREPEND_DATE
-
-quip_utils.quip_new_doc(folder_id, title, add_date)
+quip_utils.quip_new_doc('meeting-note', sys.argv[1])

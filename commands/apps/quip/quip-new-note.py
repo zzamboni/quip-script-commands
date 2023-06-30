@@ -19,14 +19,4 @@ import sys
 
 import quip_utils
 
-try:
-    import quip_config
-except ModuleNotFoundError:
-    print(f"Please configure quip_config.template.py and rename it to quip_config.py")
-    sys.exit(1)
-
-folder_id = quip_config.QUIP_NOTES_ID
-title = sys.argv[1]
-add_date = quip_config.QUIP_NOTES_PREPEND_DATE
-
-quip_utils.quip_new_doc(folder_id, title, add_date)
+quip_utils.quip_new_doc('note', sys.argv[1])
