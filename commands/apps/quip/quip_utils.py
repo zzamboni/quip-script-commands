@@ -37,7 +37,7 @@ def quip_new_doc(doc_type, title):
     readConfig()
     if not config.has_section(doc_type):
         fail(f"Error: Quip document type '{doc_type}' is not defined in {config_file}.")
-    verifyAPIToken(doc_type)
+    checkAPIToken(doc_type)
 
     try:
         client = quip.QuipClient(access_token=config[doc_type]['APIToken'], base_url=config[doc_type]['APIURL'])
