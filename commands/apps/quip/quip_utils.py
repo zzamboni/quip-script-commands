@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+#
+# Utility library for interacting with the Quip API and for other common
+# functions.
+#
+# Diego Zamboni <diego@zzamboni.org>
 
 import quip
 import os
@@ -10,11 +15,13 @@ import configparser
 config = None
 config_file = "quip_config.ini"
 
+# Print error message and exit with a non-zero code.
 def fail(message):
-    print(message)
+    red = "\u001b[31m"
+    print(red + message)
     sys.exit(1)
 
-# Read configuration
+# Read configuration file into global config variable.
 def readConfig(filename=config_file):
     global config
     config = configparser.ConfigParser()
@@ -22,17 +29,32 @@ def readConfig(filename=config_file):
     if filename not in files_read:
         fail(f"Could not read config file '{filename}'.")
 
+# Check whether the APIToken field has a non-empty value and exit if it doesn't.
+# Does not verify that it's valid.
 def checkAPIToken(doc_type):
     if config[doc_type].get('APIToken', "") == "":
         fail(f"Error: Please configure APIToken in {config_file}.")
 
-# Function from https://gist.github.com/XuankangLin/7ec82f80a0044a52330720244de2d15a
-def setClipboardData(data):
+# Put a string in the macOS clipboard using the pbcopy command.
+#
+# Function originally from
+# https://gist.github.com/XuankangLin/7ec82f80a0044a52330720244de2d15a modified
+# to automatically call encode('utf_8') on its argument, with the assumption
+# that it's a string.
+def setClipboardData(text):
     p = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
-    p.stdin.write(data)
+    p.stdin.write(text.encode('utf_8'))
     p.stdin.close()
     retcode = p.wait()
 
+# Create a new document in Quip.
+#
+# The document is created according to the configuration associated with the
+# given doc_type. This indicates parameters such as the APIToken to use, whether
+# to prepend the current date to the title, and the folder in which the document
+# should be stored. See quip_config.ini for the full list of available
+# configuration parameters.
+#
 def quip_new_doc(doc_type, title):
     readConfig()
     if not config.has_section(doc_type):
@@ -46,9 +68,15 @@ def quip_new_doc(doc_type, title):
 
         # print(f"Creating new note '{title}' in folder {folder_id}...")
         folders = []
-        if config[doc_type].get('FolderID',None):
-            folders = [config[doc_type].get('FolderID',None)]
-        result = client.new_document(content=title, format="markdown", member_ids=folders)
+        folderID = config[doc_type].get('FolderID',None)
+        if folderID:
+            folders = [folderID]
+        templateID = config[doc_type].get('TemplateID', None)
+        # If TemplateID is given, use it to create the doc, otherwise create an empty one
+        if templateID:
+            result = client.copy_document(templateID, folder_ids=[folderID], title=title)
+        else:
+            result = client.new_document(content=title, format="markdown", member_ids=folders)
     except Exception as e:
         if e.code == 401:
             fail(f"Please configure/verify your Quip API token in {config_file}")
@@ -62,7 +90,7 @@ def quip_new_doc(doc_type, title):
         if url:
             print(f"New {doc_type} created", end="")
             if config[doc_type].getboolean('CopyURLToClipboard'):
-                setClipboardData(url.encode('utf_8'))
+                setClipboardData(url)
                 print(f", URL copied to clipboard", end="")
 
             if config[doc_type].getboolean('OpenDocs'):
@@ -79,4 +107,6 @@ def quip_new_doc(doc_type, title):
                     print("Execution failed:", e, file=sys.stderr)
             print(".")
         else:
-            fail(f"Something went wrong, could not create document.")
+            fail(f"Something went wrong, could not get the document URL.")
+    else:
+        fail(f"Something went wrong, could not create document.")

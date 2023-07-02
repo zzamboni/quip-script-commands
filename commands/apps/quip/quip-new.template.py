@@ -2,12 +2,12 @@
 
 # Required parameters:
 # @raycast.schemaVersion 1
-# @raycast.title {{title}}
+# @raycast.title {{commandtitle}}
 # @raycast.mode compact
 
 # Optional parameters:
 # @raycast.icon /Applications/Quip.app/Contents/Resources/AppIcon.icns
-# @raycast.argument1 { "type": "text", "placeholder": "{{arg_placeholder}}" }
+# @raycast.argument1 { "type": "text", "placeholder": "{{commandargplaceholder}}" }
 # @raycast.packageName Quip utilities
 
 # Documentation:
@@ -16,7 +16,13 @@
 # @raycast.authorURL https://raycast.com/zzamboni
 
 import sys
-
+import re
 import quip_utils
 
-quip_utils.quip_new_doc('{{doc_type}}', sys.argv[1])
+# Determine the document type to create from the script filename.
+match = re.search('quip-new-(.+)\.py', sys.argv[0])
+if match:
+    doc_type = match.group(1)
+    quip_utils.quip_new_doc(doc_type, sys.argv[1])
+else:
+    quip_utils.fail(f"Error: Could not determine document type to use - incorrect script name.")
