@@ -47,6 +47,9 @@ for type in doc_types:
     # Replace config values in template
     template_values = {}
     for k,v in quip_utils.config[type].items():
+        # If it's a boolean value, convert it to a JSON-style boolean (i.e. "true" or "false", all lowercase)
+        if v in quip_utils.config.BOOLEAN_STATES.keys():
+            v = str(quip_utils.config[type].getboolean(k)).lower()
         template_k = "{{" + k + "}}"
         new_script = new_script.replace(template_k, v)
     with open(filename, 'w') as file:

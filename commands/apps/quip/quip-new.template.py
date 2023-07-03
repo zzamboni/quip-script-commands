@@ -7,7 +7,7 @@
 
 # Optional parameters:
 # @raycast.icon /Applications/Quip.app/Contents/Resources/AppIcon.icns
-# @raycast.argument1 { "type": "text", "placeholder": "{{commandargplaceholder}}" }
+# @raycast.argument1 { "type": "text", "placeholder": "{{commandargplaceholder}}", "optional": {{opendocifemptyarg}} }
 # @raycast.packageName Quip utilities
 
 # Documentation:
@@ -23,6 +23,10 @@ import quip_utils
 match = re.search('quip-new-(.+)\.py', sys.argv[0])
 if match:
     doc_type = match.group(1)
-    quip_utils.quip_new_doc(doc_type, sys.argv[1])
+    if len(sys.argv) > 1:
+        arg = sys.argv[1]
+    else:
+        arg = None
+    quip_utils.quip_new_doc(doc_type, arg)
 else:
     quip_utils.fail(f"Error: Could not determine document type to use - incorrect script name.")

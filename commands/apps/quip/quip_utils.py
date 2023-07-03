@@ -21,6 +21,15 @@ def fail(message):
     print(red + message)
     sys.exit(1)
 
+# Produce a macOS notification message
+def notify(title, text):
+    CMD = '''
+    on run argv
+      display notification (item 2 of argv) with title (item 1 of argv)
+    end run
+    '''
+    subprocess.call(['osascript', '-e', CMD, title, text])
+
 # Read configuration file into global config variable.
 def readConfig(filename=config_file):
     global config
@@ -47,6 +56,22 @@ def setClipboardData(text):
     p.stdin.close()
     retcode = p.wait()
 
+def quip_open(thing, doc_type='DEFAULT'):
+    # thing can be a DocID or a URL. DocIDs are 11 or 12 characters long
+    if len(thing) in [11,12]:
+        url = config[doc_type].get('BaseURL', 'https://quip.com/') + thing
+    else:
+        url = thing
+    app_args=[]
+    if config[doc_type].getboolean('UseQuipApp'):
+        app_args=["-a", "Quip"]
+    try:
+        open_args=["/usr/bin/open", *app_args, url]
+        # We use Popen to put the open process in the background.
+        pid = subprocess.Popen(open_args).pid
+    except OSError as e:
+        fail(f"Execution failed: {e}")
+
 # Create a new document in Quip.
 #
 # The document is created according to the configuration associated with the
@@ -62,12 +87,15 @@ def quip_new_doc(doc_type, text):
     checkAPIToken(doc_type)
 
     # Prepend date to the text if needed
-    if config[doc_type].getboolean('PrependDate'):
+    if text and config[doc_type].getboolean('PrependDate'):
         dateformat = config[doc_type].get('DateFormat', "%Y-%m-%d")
         text = datetime.now().strftime(dateformat) + " " + text
 
     # What to do?
     action = config[doc_type].get('action', 'create')
+    # Notification message to produce at the end
+    message_title = ""
+    message_body = ""
 
     try:
         client = quip.QuipClient(access_token=config[doc_type]['APIToken'], base_url=config[doc_type]['APIURL'])
@@ -84,15 +112,25 @@ def quip_new_doc(doc_type, text):
                 result = client.copy_document(templateID, folder_ids=[folderID], title=text)
             else:
                 result = client.new_document(content=text, format="markdown", member_ids=folders)
+            message_title = f"New {doc_type} created"
+            message_body = message_title
         elif action == 'add':
             listmarkup = { "todo": "[] ", "bullet": "- ", "num": "1. " }
             listtype = config[doc_type].get('ListType', 'none')
             docid = config[doc_type].get('DocID', None)
             if not docid:
                 fail(f"Error: no DocID provided, needed for 'add' action.")
-            if listtype in listmarkup:
-                text = listmarkup[listtype] + text
-            result = client.edit_document(docid, text, format='markdown', section_id='')
+            if text:
+                if listtype in listmarkup:
+                    text = listmarkup[listtype] + text
+                result = client.edit_document(docid, text, format='markdown', section_id='')
+                message_title = f"New {doc_type} added to document"
+                message_body = message_title
+            else:
+                if config[doc_type].getboolean('OpenDocIfEmptyArg'):
+                    message_title = f"Opening {doc_type} document"
+                quip_open(docid, doc_type)
+                sys.exit(0)
         else:
             fail(f"Error: Invalid action value '{action}', should be 'create' or 'add'.")
 
@@ -107,24 +145,17 @@ def quip_new_doc(doc_type, text):
     if result:
         url = result['thread']['link']
         if url:
-            print(f"New {doc_type} created", end="")
             if config[doc_type].getboolean('CopyURLToClipboard'):
                 setClipboardData(url)
-                print(f", URL copied to clipboard", end="")
+                message_body = message_body + f", URL copied to clipboard"
 
-            if config[doc_type].getboolean('OpenDocs'):
-                print(f", opening {url}", end="")
-                app_args=[]
-                if config[doc_type].getboolean('UseQuipApp'):
-                    app_args=["-a", "Quip"]
-                try:
-                    open_args=["/usr/bin/open", *app_args, url]
-                    # print(f"Running {open_args}")
-                    # We use Popen to put the open process in the background.
-                    pid = subprocess.Popen(open_args).pid
-                except OSError as e:
-                    print("Execution failed:", e, file=sys.stderr)
-            print(".")
+            if config[doc_type].getboolean('OpenDoc'):
+                message_body = message_body + f", opening {url}"
+                quip_open(url, doc_type)
+            message_body = message_body + "."
+            print(message_body)
+            if config[doc_type].getboolean('Notify'):
+                notify(message_title, message_body)
         else:
             fail(f"Something went wrong, could not get the document URL.")
     else:
