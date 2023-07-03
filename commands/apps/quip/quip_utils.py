@@ -51,32 +51,51 @@ def setClipboardData(text):
 #
 # The document is created according to the configuration associated with the
 # given doc_type. This indicates parameters such as the APIToken to use, whether
-# to prepend the current date to the title, and the folder in which the document
+# to prepend the current date to the text, and the folder in which the document
 # should be stored. See quip_config.ini for the full list of available
 # configuration parameters.
 #
-def quip_new_doc(doc_type, title):
+def quip_new_doc(doc_type, text):
     readConfig()
     if not config.has_section(doc_type):
         fail(f"Error: Quip document type '{doc_type}' is not defined in {config_file}.")
     checkAPIToken(doc_type)
 
+    # Prepend date to the text if needed
+    if config[doc_type].getboolean('PrependDate'):
+        dateformat = config[doc_type].get('DateFormat', "%Y-%m-%d")
+        text = datetime.now().strftime(dateformat) + " " + text
+
+    # What to do?
+    action = config[doc_type].get('action', 'create')
+
     try:
         client = quip.QuipClient(access_token=config[doc_type]['APIToken'], base_url=config[doc_type]['APIURL'])
-        if config[doc_type].getboolean('PrependDate'):
-            title = datetime.now().strftime("%Y-%m-%d") + " " + title
 
-        # print(f"Creating new note '{title}' in folder {folder_id}...")
-        folders = []
-        folderID = config[doc_type].get('FolderID',None)
-        if folderID:
-            folders = [folderID]
-        templateID = config[doc_type].get('TemplateID', None)
-        # If TemplateID is given, use it to create the doc, otherwise create an empty one
-        if templateID:
-            result = client.copy_document(templateID, folder_ids=[folderID], title=title)
+        if action == 'create':
+            # print(f"Creating new note '{text}' in folder {folder_id}...")
+            folders = []
+            folderID = config[doc_type].get('FolderID',None)
+            if folderID:
+                folders = [folderID]
+            templateID = config[doc_type].get('TemplateID', None)
+            # If TemplateID is given, use it to create the doc, otherwise create an empty one
+            if templateID:
+                result = client.copy_document(templateID, folder_ids=[folderID], title=text)
+            else:
+                result = client.new_document(content=text, format="markdown", member_ids=folders)
+        elif action == 'add':
+            listmarkup = { "todo": "[] ", "bullet": "- ", "num": "1. " }
+            listtype = config[doc_type].get('ListType', 'none')
+            docid = config[doc_type].get('DocID', None)
+            if not docid:
+                fail(f"Error: no DocID provided, needed for 'add' action.")
+            if listtype in listmarkup:
+                text = listmarkup[listtype] + text
+            result = client.edit_document(docid, text, format='markdown', section_id='')
         else:
-            result = client.new_document(content=title, format="markdown", member_ids=folders)
+            fail(f"Error: Invalid action value '{action}', should be 'create' or 'add'.")
+
     except Exception as e:
         if e.code == 401:
             fail(f"Please configure/verify your Quip API token in {config_file}")
