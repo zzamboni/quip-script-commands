@@ -9,11 +9,20 @@ import quip
 import os
 import sys
 import subprocess
+import re
 from datetime import datetime
-import configparser
+from configparser import ConfigParser, ExtendedInterpolation
 
 config = None
 config_file = "quip_config.ini"
+
+# Custom config interpolation class that allows interpolating the current
+# section name.
+# Code from https://stackoverflow.com/a/47360765
+class ExtendedSectionInterpolation(ExtendedInterpolation):
+    def before_get(self, parser, section, option, value, defaults):
+        defaults.maps.append({'section': section})
+        return super().before_get(parser, section, option, value, defaults)
 
 # Print error message and exit with a non-zero code.
 def fail(message):
@@ -33,7 +42,7 @@ def notify(title, text):
 # Read configuration file into global config variable.
 def readConfig(filename=config_file):
     global config
-    config = configparser.ConfigParser()
+    config = ConfigParser(interpolation=ExtendedSectionInterpolation())
     files_read = config.read(filename)
     if filename not in files_read:
         fail(f"Could not read config file '{filename}'.")
@@ -72,6 +81,10 @@ def quip_open(thing, doc_type='DEFAULT'):
     except OSError as e:
         fail(f"Execution failed: {e}")
 
+# Normalize a string by lowercasing and replacing whitespace with dashes.
+def normalize(s):
+    return re.sub('\W+', '-', s.lower())
+
 # Create a new document in Quip.
 #
 # The document is created according to the configuration associated with the
@@ -83,7 +96,14 @@ def quip_open(thing, doc_type='DEFAULT'):
 def quip_new_doc(doc_type, text):
     readConfig()
     if not config.has_section(doc_type):
-        fail(f"Error: Quip document type '{doc_type}' is not defined in {config_file}.")
+        # Map section names to their "normalized" variants used in the filenames
+        denormalized_types = {}
+        for t in config.sections():
+            denormalized_types[normalize(t)] = t
+        if doc_type in denormalized_types:
+            doc_type = denormalized_types[doc_type]
+        else:
+            fail(f"Error: Quip document type '{doc_type}' is not defined in {config_file}.")
     checkAPIToken(doc_type)
 
     # Prepend date to the text if needed

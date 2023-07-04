@@ -42,8 +42,9 @@ for file in glob.glob("quip-new-*.py"):
 
 for type in doc_types:
     new_script = template
-    filename = f"quip-new-{type}.py"
-    print(blue + f"Creating script for {type}: ", end="")
+    normalized_type = quip_utils.normalize(type)
+    filename = f"quip-new-{normalized_type}.py"
+    print(blue + f"Creating script for '{type}': ", end="")
     # Replace config values in template
     template_values = {}
     for k,v in quip_utils.config[type].items():
