@@ -21,11 +21,11 @@ To get set up, do the following:
 
 1. Check out this repository and add its directory as a Script Directory in the Raycast preferences:
    [[file:images/raycast-script-directory-prefs.png]]
-2. Copy =quip_config.template.ini= to =quip_config.ini= and customize it to your needs. You need to set at least the following values:
+2. Copy [[file:quip_config.ini][quip_config.template.ini]] to =quip_config.ini= and customize it to your needs. You need to set at least the following values:
    - =APIToken= to your Quip personal API token. You can get one at https://quip.com/api/personal-token (the URL may be different if you are using a Quip Enterprise instance with a custom domain).
    - If you are using a custom Quip domain, modify =BaseURL= and =APIURL= accordingly.
-   - Configure the actions you want. See the examples in the template for details on how to configure them.
-   - *Note:* if you want to populate Quip secrets and other values from a password manager, see =quip_config.chezmoi.template.ini= for an example which inserts those values from entries kept in KeePassXC. Instructions are at the top of the file.
+   - Configure the actions you want (each config section other than DEFAULT defines a new action). See the examples in the template for details on how to configure them.
+   - *Note:* if you want to populate Quip secrets and other values from a password manager, see [[file:quip_config.chezmoi.template.ini][quip_config.chezmoi.template.ini]] for an example which inserts those values from entries kept in [[https://keepassxc.org/][KeePassXC]] using [[https://www.chezmoi.io/][chezmoi]]. Instructions are at the top of the file.
 3. Once your configuration is complete, run from Raycast the "Set up Quip commands" command. This will ask you for confirmation and then generate scripts corresponding to your configuration, which will be loaded automatically by Raycast.
   [[file:images/raycast-setup-quip-commands.png]]
   [[file:images/raycast-generate-quip-commands-output.png]]
@@ -36,4 +36,4 @@ To get set up, do the following:
    #+begin_src shell
 ./quip-new-note.py "New note title"
  #+end_src
-6. If you need to update or modify your config (e.g. to add or remove actions), make sure you rerun the "Set up Quip commands" command afterwards, to ensure the scripts are kept up to date.
+6. If you modify =quip_config.ini= (specifically if you add or remove actions), remember to rerun the "Set up Quip commands" command afterwards, to ensure the scripts are kept up to date. If you only modify the configuration parameters but without adding/removing sections, there is no need to re-run the setup.
