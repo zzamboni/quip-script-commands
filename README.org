@@ -19,7 +19,7 @@ You can customize the behavior during and after these actions, including the fol
 
 To get set up, do the following:
 
-1. Check out this repository and add the =quip= directory as a Script Directory in the Raycast preferences:
+1. Check out this repository and add its directory as a Script Directory in the Raycast preferences:
    [[file:images/raycast-script-directory-prefs.png]]
 2. Copy =quip_config.template.ini= to =quip_config.ini= and customize it to your needs. You need to set at least the following values:
    - =APIToken= to your Quip personal API token. You can get one at https://quip.com/api/personal-token (the URL may be different if you are using a Quip Enterprise instance with a custom domain).
